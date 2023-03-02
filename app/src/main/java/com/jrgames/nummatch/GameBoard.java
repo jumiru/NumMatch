@@ -33,7 +33,17 @@ public class GameBoard {
     private Paint fieldPaint;
     public final Paint highlightCellPaint;
 
-    public int content[][];
+    public int content[][] = {
+        {0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 9, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {5, 2, 9, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 2, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    };
     private float cellOffsetX;
     private float cellOffsetY;
 
@@ -76,18 +86,19 @@ public class GameBoard {
 
         rand = new Random();
 
-        init();
+        highlightedCells = new ArrayList<>(10);
     }
 
-    public int getBoardWidth() {
-        return physSizeX;
-    }
-
-    public int getBoardHeight() {
+    public int getPhysicalWidth()  { return physSizeX; }
+    public int getPhysicalHeight() {
         return physSizeY;
     }
+    public int getWidth()  { return logSizeX; }
+    public int getHeight() {
+        return logSizeY;
+    }
 
-    public void init() {
+    public void init( int numLines) {
         content = new int[logSizeX][logSizeY];
         for ( int x = 0; x < logSizeX; x++ ) {
             for ( int y = 0; y < logSizeY; y++ ) {
@@ -95,28 +106,28 @@ public class GameBoard {
             }
         }
 
+
         //TODO: make the initial filling smarter so that the game is theoretically solvable
         for ( int x = 0; x < logSizeX; x++ ) {
-            for ( int y = 0; y < 3; y++ ) {
+            for ( int y = 0; y < numLines; y++ ) {
                 content[x][y] = rand.nextInt(9)+1;
             }
         }
-
-        highlightedCells = new ArrayList<>(10);
-
     }
 
-    public void draw(Canvas canvas, int offsetX, int offsetY) {
+    public void draw(Canvas canvas, int offsetX, int offsetY, int rumbleOffset, int shakerOffset) {
 
         // make game board white
         canvas.drawRect((float)offsetX,(float)offsetY,(float) (offsetX+physSizeX), (float) (offsetY+physSizeY), fieldPaint);
 
         // highlight selected cells
-        highlightedCells.forEach((c) -> {
-            Rect r = new Rect( (int)(offsetX+c.getX()*cellWidth), (int)(offsetY+c.getY()*cellHeight),
-                    (int)(offsetX+(c.getX()+1)*cellWidth), (int)(offsetY+(c.getY()+1)*cellHeight));
-            canvas.drawRect(r, highlightCellPaint);
-        });
+        synchronized (this) {
+            highlightedCells.forEach((c) -> {
+                Rect r = new Rect((int) (offsetX + c.getX() * cellWidth), (int) (offsetY + c.getY() * cellHeight),
+                        (int) (offsetX + (c.getX() + 1) * cellWidth), (int) (offsetY + (c.getY() + 1) * cellHeight));
+                canvas.drawRect(r, highlightCellPaint);
+            });
+        };
 
         // draw grid
         for ( int x = 0; x <= logSizeX; x++ ) {
@@ -139,7 +150,7 @@ public class GameBoard {
         for ( int x = 0; x < logSizeX; x++ ) {
             for ( int y = 0; y < logSizeY; y++ ) {
                 if (content[x][y]!=0) {
-                    canvas.drawText(Integer.toString(content[x][y]), getCanvasTextXPos(x), getCanvasTextYPos(y), digitPaint);
+                    canvas.drawText(Integer.toString(content[x][y]), getCanvasTextXPos(x)+shakerOffset, getCanvasTextYPos(y)+rumbleOffset, digitPaint);
                 }
             }
         }
@@ -156,17 +167,22 @@ public class GameBoard {
                 if (highlightedCells.size()==1) {
                     Cell h = highlightedCells.remove(0);
 
-                    if (match(c,h)) {
+                    if (match(c, h)) {
                         //  match!!!
+                        game.increaseScore(Math.abs(c.getX()-h.getX())+ Math.abs(c.getY()-h.getY()));
                         game.addAnimation(new MergeAnimation(
-                                this, 120, c,h,
+                                this, 90, 5, c, h,
                                 content[c.getX()][c.getY()],
                                 content[h.getX()][h.getY()]));
                         content[c.getX()][c.getY()] = 0;
                         content[h.getX()][h.getY()] = 0;
+                        // check for empty lines
+                        checkForEmptyLines();
+                    } else if (content[c.getX()][c.getY()] != 0) {
+                        highlightedCells.add(c);
                     }
                 } else {
-                    if (content[c.getX()][c.getY()]!=0)
+                    if (content[c.getX()][c.getY()] != 0)
                         highlightedCells.add(c);
                 }
             }
@@ -302,7 +318,7 @@ public class GameBoard {
 
     public boolean isLineEmpty(int y) {
         boolean lineEmpty = true;
-        for (int x = 0; x < logSizeX-1 && lineEmpty; x++) {
+        for (int x = 0; x < logSizeX && lineEmpty; x++) {
             if (content[x][y] != 0) lineEmpty = false;
         }
         return lineEmpty;
@@ -326,26 +342,109 @@ public class GameBoard {
             if (isLineEmpty(y)) {
                 int firstEmptyLine = y;
                 int numEmptyLines = 1;
-                while (isLineEmpty(y+1)) {
+                while (y+1 < getHeight() && isLineEmpty(y+1)) {
                     y++;
                     numEmptyLines++;
                 }
-                removeEmptyLines(firstEmptyLine, numEmptyLines);
+                // ignore the last block of empty lines, i.e. the empty section at the bottom
+                if (firstEmptyLine+numEmptyLines != getHeight()) {
+                    removeEmptyLines(firstEmptyLine, numEmptyLines);
+                }
             }
         }
     }
 
     private void removeEmptyLines(int firstEmptyLine, int numEmptyLines) {
-        for ( int l = 0; l < logSizeY; l++ ) {
-            if ( firstEmptyLine+numEmptyLines+l < logSizeY ) {
-                for (int x = 0; x < logSizeX; x++) {
-                    content[x][firstEmptyLine + l] = content[x][firstEmptyLine + numEmptyLines + l];
-                }
-            }
-        }
+        game.addAnimation(new DropLineAnimation(this, 30*numEmptyLines, firstEmptyLine, numEmptyLines));
+        game.increaseScore(10*numEmptyLines);
     }
 
     boolean isBoardEmpty() {
         return (findLastUsedLine()==-1);
+    }
+
+    Cell findCombination(Cell c1) {
+
+        // check linear combi
+        Cell c2 = findLinearCombi(c1,1,0);
+        if ( c2==null) {
+            c2 = findLinearCombi(c1,-1,0);
+        }
+        if (c2==null) {
+            c2 = findLinearCombi(c1,0,1);
+        }
+        if (c2==null) {
+            c2 = findLinearCombi(c1,0,-1);
+        }
+        if (c2==null) {
+            c2 = findLinearCombi(c1,1,1);
+        }
+        if (c2==null) {
+            c2 = findLinearCombi(c1,1,-1);
+        }
+        if (c2==null) {
+            c2 = findLinearCombi(c1,-1,1);
+        }
+        if (c2==null) {
+            c2 = findLinearCombi(c1,-1,-1);
+        }
+
+        // cech next line cobi
+        if (c2 == null) {
+            int startX = c1.getX();
+            int startY = c1.getY();
+            int val1 = content[startX][startY];
+            for ( int x = startX+1; x < getWidth(); x+=1) {
+                if (content[x][startY]!=0) return null;
+            }
+            int y = startY+1;
+            for (int x = 0; x < getWidth(); x+=1) {
+                int val2 = content[x][y];
+                if (val1==val2 || val1+val2==10) {
+                    return new Cell(x,y);
+                }
+                if (content[x][y]!=0) return null;
+            }
+        }
+        return c2;
+    }
+
+    private Cell findLinearCombi(Cell c1, int dx, int dy) {
+        int startX = c1.getX();
+        int startY = c1.getY();
+        int val1 = content[startX][startY];
+        int x = startX+dx;
+        int y = startY+dy;
+        while ((dx==0 || (0<= x && x < getWidth())) && (dy==0 || (0<= y && y < getHeight()))) {
+            int val2 = content[x][y];
+            if (val1==val2 || val1+val2==10) {
+                return new Cell(x,y);
+            } else if (val2!=0) return null;
+            x += dx;
+            y += dy;
+        }
+        return null;
+    }
+
+    boolean findCombination(Cell c1, Cell c2) {
+        int maxY = findLastUsedLine();
+        for ( int x = 0; x < getWidth(); x++ ) {
+            for ( int y = 0; y <= maxY; y++ ) {
+                int v = content[x][y];
+                if ( v!=0 ) {
+                    c1.set(x, y);
+                    Cell c = findCombination(c1);
+                    if (c != null) {
+                        c2.set(c);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean hasCombination() {
+        return findCombination(new Cell(), new Cell());
     }
 }

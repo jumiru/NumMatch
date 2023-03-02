@@ -6,9 +6,12 @@ public class Cell {
     private int x;
     private int y;
 
+    public Cell() {
+        set(0,0);
+    }
+
     public Cell(int x, int y) {
-        this.x = x;
-        this.y = y;
+        set(x,y);
     }
 
     @Override
@@ -26,4 +29,13 @@ public class Cell {
 
     public int getX() { return x; }
     public int getY() { return y; }
+
+    public void set(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public void set(Cell c) {
+        set(c.getX(), c.getY());
+    }
 }

@@ -5,8 +5,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 
-import androidx.annotation.Nullable;
-
 import java.util.Random;
 
 public class GameOverAnimation extends Animation {
@@ -28,6 +26,8 @@ public class GameOverAnimation extends Animation {
     Random rand;
     private int scrollY;
     private String scrollText;
+    boolean gameWon;
+
 
     public GameOverAnimation(GameBoard gb, int dur, boolean gameWon ) {
         super(gb,dur);
@@ -52,14 +52,16 @@ public class GameOverAnimation extends Animation {
             scrollText = "Game Over !!!";
         }
 
-        dY = gb.getBoardHeight() / dur;
+        dY = (float)gb.getPhysicalHeight() / dur;
         bottom = (float)gb.game.TOP_BORDER;
 
         scrollPos = -500;
-        scrollY = (int)gb.game.TOP_BORDER+gb.getBoardWidth()/2;
+        scrollY = (int)gb.game.TOP_BORDER+gb.getPhysicalWidth()/2;
 
         curtain = new Rect( gb.game.LEFT_BORDER, gb.game.TOP_BORDER,
-                gb.game.LEFT_BORDER+gb.getBoardWidth(), gb.game.TOP_BORDER);
+                gb.game.LEFT_BORDER+gb.getPhysicalWidth(), gb.game.TOP_BORDER);
+
+        this.gameWon = gameWon;
 
         rand = new Random();
     }
@@ -79,17 +81,24 @@ public class GameOverAnimation extends Animation {
         if (curtainPhase) {
             bottom += dY;
             curtain.bottom = (int)bottom;
-            if (bottom>=gb.getBoardHeight()+gb.game.TOP_BORDER) {
+            if (bottom>=gb.getPhysicalHeight()+gb.game.TOP_BORDER) {
                 curtainPhase = false;
-                bottom = gb.getBoardHeight()+gb.getBoardHeight();
+                bottom = gb.getPhysicalHeight()+gb.getPhysicalHeight();
             }
         } else {
             scrollPos+=5;
             alphaCounter += alphaSineIncrement;
             alpha = alphaStart+alphaAmplitude*(float) Math.sin((double)alphaCounter);
-            if (scrollPos >= gb.getBoardWidth()+gb.game.LEFT_BORDER+gb.game.RIGHT_BORDER) {
+            if (scrollPos >= gb.getPhysicalWidth()+gb.game.LEFT_BORDER+gb.game.RIGHT_BORDER) {
                 scrollPos = -500;
-                scrollY = rand.nextInt(gb.getBoardHeight())+gb.game.TOP_BORDER;
+                scrollY = rand.nextInt(gb.getPhysicalHeight())+gb.game.TOP_BORDER;
+            }
+            if (gameWon && (animationCycle % 60) == 0) {
+                int x = rand.nextInt(gb.getWidth());
+                int y = rand.nextInt(gb.getHeight());
+                int v = gb.content[x][y];
+                Cell c = new Cell(x,y);
+                gb.game.addAnimation(new MergeAnimation(gb, 240, 10,  c, c, v, v));
             }
         }
 

@@ -41,6 +41,7 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
     private int canvasHeight;
 
     private List<Animation> ongoingAnimations = new ArrayList<>(20);
+    private List<Animation> newAnimations = new ArrayList<>(20);
     private Paint buttonPaint;
     private Paint pressedButtonPaint;
     private Paint buttonTextPaint;
@@ -48,28 +49,56 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
     private int buttonBottom;
 
     private Rect resetButton;
-    private Rect undoButton;
     private Rect addButton;
     private Rect hintButton;
 
     private Rect buttons[];
     private int resetButtonHighlightCounter;
-    private int undoButtonHighlightCounter;
     private int addButtonHighlightCounter;
     private int hintButtonHighlightCounter;
     private final int buttonHighlightDuration = 10;
 
     private boolean gameOver;
     private boolean gameWon;
+    private boolean gameBoardCreated;
 
+    private int numHints;
+    private int numAdds;
+    private Paint circlePaint;
+    private Paint circleTextPaint;
+    private boolean hintGiven;
+
+    private float rumbleOffset;
+    public void setRumbleOffset(float rumbleOffset) {
+        this.rumbleOffset = rumbleOffset;
+    }
+
+    private float shakerOffset;
+    public void setShakerOffset(float shakerOffset) { this.shakerOffset = shakerOffset;};
+
+    private int gamesWon;
+    private int gamesLost;
+    private int score;
+    private int highScore;
+
+    private Paint scorePaint;
+
+    SharedPreferences prefs;
 
 
     public Game(Context context, SharedPreferences prefs) {
         super(context);
+        this.prefs = prefs;
 
         //getSurfaceHolder and add callback method
         SurfaceHolder surfaceHolder = getHolder();
         surfaceHolder.addCallback(this);
+
+        gameBoardCreated = false;
+
+        this.highScore = prefs.getInt("highscore", 0);
+        this.gamesWon  = prefs.getInt("gameswon", 0);
+        this.gamesLost = prefs.getInt("gameslost", 0);
 
         setFocusable( true );
     }
@@ -77,46 +106,88 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
     @Override
     public void surfaceCreated(@NonNull SurfaceHolder holder) {
         Log.d("Game()", "surfaceCreated()");
-        Rect frame = holder.getSurfaceFrame();
-        canvasWidth = frame.right - frame.left;
-        canvasHeight = frame.bottom - frame.top;
+        if (!gameBoardCreated) {
+            gameBoardCreated = true;
+            Rect frame = holder.getSurfaceFrame();
+            canvasWidth = frame.right - frame.left;
+            canvasHeight = frame.bottom - frame.top;
 
-        int boardWidth = canvasWidth - LEFT_BORDER - RIGHT_BORDER;
-        int maxBoardHeight = canvasHeight -TOP_BORDER - BOTTOM_BORDER;
-        fieldsY = maxBoardHeight/(boardWidth/fieldsX);
+            int boardWidth = canvasWidth - LEFT_BORDER - RIGHT_BORDER;
+            int maxBoardHeight = canvasHeight - TOP_BORDER - BOTTOM_BORDER;
+            fieldsY = maxBoardHeight / (boardWidth / fieldsX);
 
-        gameBoard = new GameBoard(this, fieldsX, fieldsY, boardWidth );
+            gameBoard = new GameBoard(this, fieldsX, fieldsY, boardWidth);
 
-        buttonPaint = new Paint();
-        buttonPaint.setColor(Color.rgb(200,200,200));
+            buttonPaint = new Paint();
+            buttonPaint.setColor(Color.rgb(200, 200, 200));
 
-        pressedButtonPaint = new Paint();
-        pressedButtonPaint.setColor(Color.rgb(100,100,100));
+            pressedButtonPaint = new Paint();
+            pressedButtonPaint.setColor(Color.rgb(100, 100, 100));
 
-        buttonTextPaint = new Paint();
-        buttonTextPaint.setColor(Color.rgb(0,0,250));
-        buttonTextPaint.setTextAlign(Paint.Align.CENTER);
-        buttonTextPaint.setTextSize(120);
+            buttonTextPaint = new Paint();
+            buttonTextPaint.setColor(Color.rgb(0, 0, 250));
+            buttonTextPaint.setTextAlign(Paint.Align.CENTER);
+            buttonTextPaint.setTextSize(120);
 
-        buttonTop = gameBoard.getBoardHeight()+2*TOP_BORDER;
-        buttonBottom = buttonTop+buttonHeight;
+            buttonTop = gameBoard.getPhysicalHeight() + 2 * TOP_BORDER;
+            buttonBottom = buttonTop + buttonHeight;
 
-        int top  = buttonTop;
+            int top = buttonTop;
 
-        int left = canvasWidth*1/5-buttonHeight/2;
-        resetButton = new Rect(left,top,left+buttonHeight,top+buttonHeight);
-        left = canvasWidth*2/5-75;
-        undoButton = new Rect(left,top,left+150,top+150);
-        left = canvasWidth*3/5-75;
-        addButton = new Rect(left,top,left+150,top+150);
-        left = canvasWidth*4/5-75;
-        hintButton = new Rect(left,top,left+150,top+150);
+            int left = canvasWidth * 1 / 4 - buttonHeight / 2;
+            resetButton = new Rect(left, top, left + buttonHeight, top + buttonHeight);
+            left = canvasWidth * 2 / 4 - 75;
+            addButton = new Rect(left, top, left + 150, top + 150);
+            left = canvasWidth * 3 / 4 - 75;
+            hintButton = new Rect(left, top, left + 150, top + 150);
 
-        gameOver = false;
-        gameWon = false;
+            circlePaint = new Paint();
+            circlePaint.setColor(Color.rgb(222,0,0));
+
+            circleTextPaint = new Paint();
+            circleTextPaint.setTextSize(gameBoard.getCellWidth()/3);
+            circleTextPaint.setColor(Color.rgb(222,222,222));
+
+            scorePaint = new Paint();
+            scorePaint.setTextSize(50);
+            scorePaint.setColor(Color.WHITE);
+
+            init();
+        }
+
+
 
         gameLoop = new GameLoop(this, holder);
         gameLoop.startLoop();
+    }
+
+    private void init() {
+        gameOver = false;
+        gameWon = false;
+        numHints = 3;
+        numAdds  = 3;
+        gameBoard.init(4);
+        score = 0;
+
+        /*
+        for (int x =0; x<fieldsX; x++) {
+            if (3==x || x==5) {
+                gameBoard.content[x][0] = 1;
+                gameBoard.content[x][1] = 1;
+            } else {
+                gameBoard.content[x][0] = 0;
+                gameBoard.content[x][1] = 0;
+            }
+        }
+        gameBoard.content[3][4] = 1;
+        gameBoard.content[4][4] = 0;
+        gameBoard.content[5][4] = 1;
+
+        gameBoard.content[5][6] = 5;
+        gameBoard.content[5][7] = 5;
+         */
+
+
     }
 
     @Override
@@ -137,13 +208,12 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
                 int x = (int)event.getX();
                 int y = (int)event.getY();
                 if (!gameOver) {
+
+                    if (y<gameBoard.getPhysicalHeight()) hintGiven = false;
+
                     gameBoard.onTouchEvent(x-LEFT_BORDER, y-TOP_BORDER);
 
-                    if (undoButton.left <= x && x <= undoButton.right &&
-                            undoButton.top <= y && y <= undoButton.bottom) {
-                        undoButtonHighlightCounter = buttonHighlightDuration;
-                        undoButtonPressed();
-                    } else if (addButton.left <= x && x <= addButton.right &&
+                    if (addButton.left <= x && x <= addButton.right &&
                             addButton.top <= y && y <= addButton.bottom) {
                         addButtonHighlightCounter = buttonHighlightDuration;
                         addButtonPressed();
@@ -166,21 +236,43 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
     }
 
     private void hintButtonPressed() {
+        if (numHints != 0) {
 
+            Cell c1 = new Cell();
+            Cell c2 = new Cell();
+            boolean hintAvailable = gameBoard.findCombination(c1, c2);
+
+            if (hintAvailable) {
+                if (!hintGiven) numHints--;
+                hintGiven = true;
+                addAnimation(new HighlightTwoCellsAnimation(gameBoard, 180, c1, c2));
+            } else {
+                addButtonHighlightCounter = buttonHighlightDuration;
+                addAnimation( new RumbleAnimation(gameBoard, 60, 30, true));
+            }
+        }
     }
 
     private void addButtonPressed() {
-        gameBoard.addNewCells();
-    }
-
-    private void undoButtonPressed() {
+        if ( numAdds != 0) {
+            numAdds--;
+            gameBoard.addNewCells();
+        }
     }
 
     private void resetButtonPressed() {
-        gameOver = false;
-        gameWon = false;
-        gameBoard.init();
+        init();
     }
+
+    public int getNumHints() {
+        return numHints;
+    }
+
+    public int getNumAdds() {
+        return numAdds;
+    }
+
+
 
 
     @Override
@@ -189,7 +281,7 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
         super.draw(canvas);
 
         // draw game board
-        gameBoard.draw(canvas, LEFT_BORDER, TOP_BORDER);
+        gameBoard.draw(canvas, LEFT_BORDER, TOP_BORDER, (int)rumbleOffset, (int)shakerOffset);
 
         // animations
         synchronized (ongoingAnimations) {
@@ -198,7 +290,15 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
             });
         }
         drawButtons(canvas);
+        drawScore(canvas);
 
+    }
+
+    private void drawScore(Canvas canvas) {
+        canvas.drawText("score: "+Integer.toString(score), 2*RIGHT_BORDER, resetButton.bottom+100, scorePaint);
+        canvas.drawText("high: "+Integer.toString(highScore), canvasWidth/2, resetButton.bottom+100, scorePaint);
+        canvas.drawText("won: "+Integer.toString(gamesWon), 2*RIGHT_BORDER, resetButton.bottom+200, scorePaint);
+        canvas.drawText("lost: "+Integer.toString(gamesLost), canvasWidth/2, resetButton.bottom+200, scorePaint);
     }
 
     private void drawButtons(Canvas c) {
@@ -211,13 +311,6 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
         c.drawRect( resetButton, p);
         c.drawText("\ud83d\udd04", resetButton.left+buttonHeight/2, resetButton.top+115, buttonTextPaint);
 
-        p = buttonPaint;
-        if (undoButtonHighlightCounter>0) {
-            undoButtonHighlightCounter--;
-            p = pressedButtonPaint;
-        }
-        c.drawRect(undoButton, p);
-        c.drawText("\u21BA",undoButton.left+buttonHeight/2, undoButton.top+115, buttonTextPaint );
 
         p = buttonPaint;
         if (addButtonHighlightCounter>0) {
@@ -225,6 +318,12 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
             p = pressedButtonPaint;
         }
         c.drawRect(addButton, p);
+        if (getNumAdds()>0) {
+            float x = addButton.right-gameBoard.getCellWidth()/5;
+            float y = addButton.top+gameBoard.getCellHeight()/5;
+            c.drawCircle(x, y , gameBoard.getCellHeight()/5 , circlePaint);
+            c.drawText(Integer.toString(getNumAdds()), x-gameBoard.getCellWidth()/9,y+gameBoard.getCellHeight()/9,circleTextPaint);
+        }
         c.drawText("\u2795",addButton.left+buttonHeight/2, addButton.top+115, buttonTextPaint );
 
         p = buttonPaint;
@@ -234,29 +333,73 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
         }
         c.drawRect(hintButton, p);
         c.drawText("\u261d",hintButton.left+buttonHeight/2, hintButton.top+115, buttonTextPaint );
+        if (getNumHints()>0) {
+            float x = hintButton.right-gameBoard.getCellWidth()/5;
+            float y = hintButton.top+gameBoard.getCellHeight()/5;
+            c.drawCircle(x, y , gameBoard.getCellHeight()/5 , circlePaint);
+            c.drawText(Integer.toString(getNumHints()), x-gameBoard.getCellWidth()/9,y+gameBoard.getCellHeight()/9,circleTextPaint);
+        }
+
     }
 
     public void update() {
 
-        // game updates
-
         // animation updates
+        if ( !newAnimations.isEmpty()) {
+            // only one dropLineAnimation at a time
+            int idx = 0;
+            while ( idx < newAnimations.size() ) {
+                Animation a = newAnimations.get(idx);
+                if ( !(a instanceof DropLineAnimation) || !dropLineAnimationRunning()) {
+                    synchronized (ongoingAnimations) {
+                        ongoingAnimations.add(a);
+                    }
+                    newAnimations.remove(idx);
+                } else {
+                    idx++;
+                }
+            }
+        }
+
         synchronized (ongoingAnimations) {
             ongoingAnimations.removeIf(a -> a.update());
         }
 
-        // check for empty lines
-        gameBoard.checkForEmptyLines();
-
         // check for game win
-        if (!gameOver && gameBoard.isBoardEmpty()) {
-            setGameOver(true);
+        boolean dropRunning = dropLineAnimationRunning();
+        boolean insertionRunning = insertionAnimationRunning();
+        boolean mergeRunning = mergeAnimationRunning();
+        boolean animationScheduled = isAnimationScheduled();
+        boolean relevantAnimationRunning = dropRunning || insertionRunning || mergeRunning || animationScheduled;
+        if (!gameOver && !relevantAnimationRunning) {
+            if (gameBoard.isBoardEmpty()) {
+                setGameOver(true);
+            } else if (!gameBoard.hasCombination() && numAdds==0) {
+                boolean hc = gameBoard.hasCombination();
+                setGameOver(false);
+            }
         }
     }
 
+    private boolean isAnimationScheduled() {
+        return (newAnimations.size()!=0);
+    }
+
+    private boolean insertionAnimationRunning() {
+        return !ongoingAnimations.stream().allMatch( a -> !(a instanceof InsertionAnimation));
+    }
+
+    private boolean mergeAnimationRunning() {
+        return !ongoingAnimations.stream().allMatch( a -> !(a instanceof MergeAnimation));
+    }
+
+    private boolean dropLineAnimationRunning() {
+        return !ongoingAnimations.stream().allMatch( a -> !(a instanceof DropLineAnimation));
+    }
+
     public void addAnimation(Animation a) {
-        synchronized (ongoingAnimations) {
-            ongoingAnimations.add(a);
+        synchronized (newAnimations) {
+            newAnimations.add(a);
         }
     }
 
@@ -269,10 +412,25 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
     public void setGameOver( boolean win ) {
         gameOver = true;
         gameWon = win;
+        if ( win ) gamesWon++;
+        else gamesLost++;
         addAnimation( new GameOverAnimation(gameBoard, 100, win) );
+
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putInt("highscore", highScore);
+        editor.putInt("gameswon", gamesWon);
+        editor.putInt("gameslost", gamesLost);
+        editor.apply();
     }
 
     public boolean isGameOver() {
         return gameOver;
+    }
+
+    public void increaseScore(int increment) {
+        score += increment;
+        if (score > highScore) {
+            highScore = score;
+        }
     }
 }

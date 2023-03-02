@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.util.Log;
+import android.view.Window;
+import android.view.WindowManager;
 
 
 /**
@@ -20,7 +22,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         Log.d("MainActivity()", "onCreate()!!!!");
         super.onCreate(savedInstanceState);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+        // set window to full screen
+        Window window=getWindow();
+        window.setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
 
         // set content view to game so that objects of the game can be rendered to the screen
         SharedPreferences p = getPreferences(MODE_PRIVATE);

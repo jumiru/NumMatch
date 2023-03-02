@@ -10,7 +10,7 @@ import java.util.Random;
 public class MergeAnimation extends Animation {
 
     private static float fractionOfMovement = 0.1f;
-    private static int divider = 5;
+    private int divider = 10;
 
     public Cell c1;
     public Cell c2;
@@ -51,12 +51,13 @@ public class MergeAnimation extends Animation {
 
     Random rand;
 
-    public MergeAnimation(GameBoard gb, int dur, Cell c1, Cell c2,
+    public MergeAnimation(GameBoard gb, int dur, int divider, Cell c1, Cell c2,
                           int v1, int v2 ) {
         super(gb, dur);
         this.gb = gb;
         this.c1 = c1;
         this.c2 = c2;
+        this.divider = divider;
 
         val1 = v1;
         val2 = v2;
@@ -73,10 +74,15 @@ public class MergeAnimation extends Animation {
         angle1 = 0;
         angle2 = 0;
 
-        dx = (pos2X-pos1X) / 2 / (animationDuration*fractionOfMovement);
-        dy = (pos2Y-pos1Y) / 2 / (animationDuration*fractionOfMovement);
-        drot = 360/(animationDuration*fractionOfMovement);
-
+        if (c1.getX()!=c2.getX() || c1.getY()!=c2.getY()) {
+            dx = (pos2X - pos1X) / 2 / (animationDuration * fractionOfMovement);
+            dy = (pos2Y - pos1Y) / 2 / (animationDuration * fractionOfMovement);
+            drot = 360 / (animationDuration * fractionOfMovement);
+        } else {
+            dx = 0;
+            dy = 0;
+            drot = 0;
+        }
         phase2 = false;
 
         p = new Paint(gb.highlightCellPaint);
@@ -123,7 +129,7 @@ public class MergeAnimation extends Animation {
             angle1 += drot;
             angle2 -= drot;
 
-            if (animationCycle >= animationDuration * fractionOfMovement) {
+            if ((animationCycle >= animationDuration * fractionOfMovement) || (dx==0)) {
                 // setup phase2, i.e. divide blocks
                 phase2 = true;
 
@@ -158,6 +164,7 @@ public class MergeAnimation extends Animation {
                 }
             }
             alpha -= dAlpha;
+            if ( alpha < 0) alpha = 0;
         }
 
 
