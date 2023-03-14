@@ -81,8 +81,8 @@ public class DropLineAnimation extends Animation {
         s += v;
         v += a;
 
-        animationCycle++;
-        if (animationCycle >= animationDuration) {
+            animationCycle++;
+            if (animationCycle >= animationDuration) {
             for ( int y = 0; y < numLinesToMove; y++ ) {
                 for ( int x = 0; x < gb.getWidth(); x++ ) {
                     gb.content[x][y+firstEmptyLine] = contentToMove[x][y];

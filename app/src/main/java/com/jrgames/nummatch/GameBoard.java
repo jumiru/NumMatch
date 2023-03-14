@@ -33,17 +33,9 @@ public class GameBoard {
     private Paint fieldPaint;
     public final Paint highlightCellPaint;
 
-    public int content[][] = {
-        {0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 9, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {5, 2, 9, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {0, 0, 0, 2, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    };
+    public int content[][];
+
+
     private float cellOffsetX;
     private float cellOffsetY;
 
@@ -107,10 +99,10 @@ public class GameBoard {
         }
 
 
-        //TODO: make the initial filling smarter so that the game is theoretically solvable
-        for ( int x = 0; x < logSizeX; x++ ) {
-            for ( int y = 0; y < numLines; y++ ) {
-                content[x][y] = rand.nextInt(9)+1;
+       //TODO: make the initial filling smarter so that the game is theoretically solvable
+        for (int x = 0; x < logSizeX; x++) {
+            for (int y = 0; y < numLines; y++) {
+                content[x][y] = rand.nextInt(9) + 1;
             }
         }
     }
@@ -176,6 +168,12 @@ public class GameBoard {
                                 content[h.getX()][h.getY()]));
                         content[c.getX()][c.getY()] = 0;
                         content[h.getX()][h.getY()] = 0;
+
+                        boolean line1Empty = isLineEmpty(c.getY());
+                        boolean line2Empty = isLineEmpty(h.getY());
+                        if ( line1Empty && line2Empty ) game.increaseScore (50);
+                        else if (line1Empty || line2Empty ) game.increaseScore(20);
+
                         // check for empty lines
                         checkForEmptyLines();
                     } else if (content[c.getX()][c.getY()] != 0) {
@@ -356,7 +354,6 @@ public class GameBoard {
 
     private void removeEmptyLines(int firstEmptyLine, int numEmptyLines) {
         game.addAnimation(new DropLineAnimation(this, 30*numEmptyLines, firstEmptyLine, numEmptyLines));
-        game.increaseScore(10*numEmptyLines);
     }
 
     boolean isBoardEmpty() {

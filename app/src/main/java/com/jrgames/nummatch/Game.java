@@ -2,6 +2,7 @@ package com.jrgames.nummatch;
 
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -13,6 +14,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,10 +24,19 @@ import java.util.List;
  * Game manages all objects in the game and is responsible for updating all states
  * and renders all objects to the screen
  */
-public class Game extends SurfaceView implements SurfaceHolder.Callback  {
+public class Game extends SurfaceView implements SurfaceHolder.Callback , DialogInterface.OnClickListener  {
 
+    private final Context mContext;
     private GameLoop gameLoop;
     private GameBoard gameBoard;
+
+    private final boolean usePreload = false;
+    private int preload[][] = {
+            {0, 0, 0, 3, 0, 0, 0, 0, 5 },
+            {3, 5, 0, 0, 0, 0, 0, 0, 0 },
+            {0, 0, 0, 0, 0, 0, 0, 0, 0 },
+            {0, 0, 0, 0, 0, 0, 0, 0, 0 }
+    };
 
     public final int TOP_BORDER    = 20;
     public final int BOTTOM_BORDER = 400;
@@ -88,6 +99,7 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
 
     public Game(Context context, SharedPreferences prefs) {
         super(context);
+        this.mContext = context;
         this.prefs = prefs;
 
         //getSurfaceHolder and add callback method
@@ -166,28 +178,17 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
         gameWon = false;
         numHints = 3;
         numAdds  = 3;
-        gameBoard.init(4);
+
         score = 0;
 
-        /*
-        for (int x =0; x<fieldsX; x++) {
-            if (3==x || x==5) {
-                gameBoard.content[x][0] = 1;
-                gameBoard.content[x][1] = 1;
-            } else {
-                gameBoard.content[x][0] = 0;
-                gameBoard.content[x][1] = 0;
+        gameBoard.init(4);
+        if ( usePreload ) {
+            for (int y = 0; y < preload.length; y++) {
+                for (int x = 0; x < gameBoard.getWidth(); x++) {
+                    gameBoard.content[x][y] = preload[y][x];
+                }
             }
         }
-        gameBoard.content[3][4] = 1;
-        gameBoard.content[4][4] = 0;
-        gameBoard.content[5][4] = 1;
-
-        gameBoard.content[5][6] = 5;
-        gameBoard.content[5][7] = 5;
-         */
-
-
     }
 
     @Override
@@ -261,8 +262,21 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
     }
 
     private void resetButtonPressed() {
-        init();
+        if (gameOver) {
+            init();
+        } else {
+            AlertDialog.Builder dlgAlert  = new AlertDialog.Builder(this.mContext);
+            //lgAlert.setMessage(resp);
+            dlgAlert.setTitle("Do you really want to end the game and restart?");
+            dlgAlert.setPositiveButton("YES", this);
+            dlgAlert.setNegativeButton("NOPE", this);
+            dlgAlert.setCancelable(true);
+
+            dlgAlert.create().show();
+        }
     }
+
+
 
     public int getNumHints() {
         return numHints;
@@ -412,7 +426,12 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
     public void setGameOver( boolean win ) {
         gameOver = true;
         gameWon = win;
-        if ( win ) gamesWon++;
+        if ( win ) {
+            if (score > highScore) {
+                highScore = score;
+            }
+            gamesWon++;
+        }
         else gamesLost++;
         addAnimation( new GameOverAnimation(gameBoard, 100, win) );
 
@@ -429,8 +448,13 @@ public class Game extends SurfaceView implements SurfaceHolder.Callback  {
 
     public void increaseScore(int increment) {
         score += increment;
-        if (score > highScore) {
-            highScore = score;
+
+    }
+
+    @Override
+    public void onClick(DialogInterface dialog, int which) {
+        if (which== DialogInterface.BUTTON_POSITIVE) {
+            init();
         }
     }
 }
